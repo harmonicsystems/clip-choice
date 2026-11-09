@@ -1,0 +1,141 @@
+/* Clip Choice — plain CSS custom properties, light + dark, low stimulation.
+   Big tiles (≥180px), a thick yellow focus ring with a dark edge, and no
+   motion when the system asks for reduced motion. */
+
+:root {
+  --bg: #f4f2ec;
+  --surface: #ffffff;
+  --ink: #1f2328;
+  --muted: #555d68;
+  --line: #d9d5cc;
+  --accent: #2f5677;
+  --accent-ink: #ffffff;
+  --accent-soft: #e4ecf3;
+  --good: #2e6b40;
+  --good-soft: #e3f1e7;
+  --warn: #7a5a00;
+  --warn-soft: #fbf1d6;
+  --bad: #9a3b3b;
+  --bad-soft: #f7e6e6;
+  --ring: #ffd400;
+  --ring-edge: #111111;
+  --radius: 16px;
+  --font: 'Atkinson Hyperlegible', system-ui, sans-serif;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #15181c;
+    --surface: #20252b;
+    --ink: #eef0f2;
+    --muted: #a9b1bb;
+    --line: #363d46;
+    --accent: #8fb7da;
+    --accent-ink: #10161c;
+    --accent-soft: #24313d;
+    --good: #84c79a;
+    --good-soft: #1d2f23;
+    --warn: #e8c66a;
+    --warn-soft: #33290f;
+    --bad: #ec9a9a;
+    --bad-soft: #3a2020;
+    --ring-edge: #000000;
+    color-scheme: dark;
+  }
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: 18px;
+  line-height: 1.45;
+}
+
+button, input, select, textarea { font: inherit; color: inherit; }
+
+/* The one focus style, everywhere. */
+:focus { outline: none; }
+:focus-visible,
+.focused {
+  outline: 6px solid var(--ring);
+  outline-offset: 0;
+  box-shadow: 0 0 0 9px var(--ring-edge), inset 0 0 0 2px var(--ring-edge);
+}
+
+h1, h2, h3 { line-height: 1.2; margin: 0 0 0.5em; }
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  padding: 0.5em 1em;
+  border-radius: 10px;
+  border: 2px solid var(--line);
+  background: var(--surface);
+  cursor: pointer;
+  min-height: 44px;
+}
+.btn:hover { border-color: var(--accent); }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.btn.danger { color: var(--bad); border-color: var(--bad); }
+.btn.small { min-height: 36px; padding: 0.25em 0.7em; font-size: 0.9rem; }
+
+input[type='text'], input[type='number'], input:not([type]), select, textarea {
+  background: var(--surface);
+  border: 2px solid var(--line);
+  border-radius: 8px;
+  padding: 0.4em 0.6em;
+  min-height: 44px;
+}
+textarea { min-height: 6em; width: 100%; resize: vertical; }
+
+.muted { color: var(--muted); }
+.sr-only {
+  position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap;
+}
+
+/* ---- Tiles (menu + talk) ---- */
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 28px;
+  padding: 28px;
+  list-style: none;
+  margin: 0;
+}
+.tile {
+  min-height: 200px;
+  min-width: 180px;
+  border-radius: var(--radius);
+  border: 3px solid var(--line);
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 14px;
+  cursor: pointer;
+  text-align: center;
+  position: relative;
+}
+.tile .pic { font-size: 84px; line-height: 1; }
+.tile img.pic { width: 100%; max-height: 130px; object-fit: cover; border-radius: 10px; }
+.tile .label { font-size: 1.5rem; font-weight: 700; }
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-14px); }
+  40%, 80% { transform: translateX(14px); }
+}
+.shake { animation: shake 0.35s; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
