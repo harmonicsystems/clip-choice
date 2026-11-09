@@ -1,5 +1,5 @@
 <script>
-  import { newClip, normalizeConfig, parseWords, youtubeId, clipWindow, parseClipLines } from '../lib/config.js'
+  import { newClip, normalizeConfig, parseWords, youtubeId, clipWindow, parseClipLines, cleanLink } from '../lib/config.js'
   import * as store from '../lib/db.js'
   import { toCSV, localDate } from '../lib/stats.js'
   import Player from './Player.svelte'
@@ -236,7 +236,7 @@
           <button class="btn small danger" onclick={() => confirm(`Remove “${clip.title}”?`) && edit((c) => c.clips.splice(i, 1))}>Remove</button>
         </div>
         <div class="row">
-          <label class="grow">YouTube link <input value={clip.url} placeholder="https://youtu.be/…" onchange={(e) => setClip(i, 'url', e.currentTarget.value.trim())} /></label>
+          <label class="grow">YouTube link <input value={clip.url} placeholder="https://youtu.be/…" onchange={(e) => setClip(i, 'url', cleanLink(e.currentTarget.value))} /></label>
           <label>Start <input value={clip.start} size="6" placeholder="0:00" onchange={(e) => setClip(i, 'start', e.currentTarget.value.trim())} /></label>
           <label>End <input value={clip.end} size="6" placeholder="0:30" onchange={(e) => setClip(i, 'end', e.currentTarget.value.trim())} /></label>
           <button class="btn" onclick={() => testClip(clip)}>Test clip</button>
@@ -261,7 +261,7 @@
     <button class="btn primary" onclick={() => edit((c) => c.clips.push(newClip()))}>Add clip</button>
 
     <h3>Add several clips</h3>
-    <p class="muted">One per line: <code>emoji | Title | YouTube link | start | end</code>. Only the link is required.</p>
+    <p class="muted">One per line: <code>emoji | Title | YouTube link | start | end</code>. Only the link is required; YouTube’s embed code works too.</p>
     <textarea bind:value={bulkText} rows="4" placeholder="🦸 | Elastigirl | https://youtu.be/… | 0:10 | 0:40"></textarea>
     <div class="row">
       <button class="btn" onclick={addBulk} disabled={!bulkText.trim()}>Add these clips</button>

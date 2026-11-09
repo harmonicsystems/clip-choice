@@ -86,3 +86,16 @@ describe('parseClipLines', () => {
     expect(bad).toEqual(['no link here'])
   })
 })
+
+import { cleanLink } from '../src/lib/config.js'
+describe('cleanLink', () => {
+  it('turns share links and pasted embed code into a short link', () => {
+    expect(cleanLink('<iframe width="560" src="https://www.youtube.com/embed/5kw9A39j57c?si=4wUOBiS-U0cTZxMW" title="YouTube video player"></iframe>')).toBe('https://youtu.be/5kw9A39j57c')
+    expect(cleanLink('https://youtu.be/t5v2qBBD-gE?si=abc')).toBe('https://youtu.be/t5v2qBBD-gE')
+    expect(cleanLink('not a link')).toBe('not a link')
+  })
+  it('bulk add accepts embed code as the link', () => {
+    const { clips } = parseClipLines('🦸 | Elastigirl | <iframe src="https://www.youtube.com/embed/5kw9A39j57c?si=x"></iframe>')
+    expect(clips[0]).toMatchObject({ title: 'Elastigirl', url: 'https://youtu.be/5kw9A39j57c' })
+  })
+})

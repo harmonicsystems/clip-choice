@@ -145,6 +145,14 @@ export function youtubeId(url) {
   return m ? m[1] : null
 }
 
+// Any YouTube link, share link, or pasted <iframe> embed code → a short
+// https://youtu.be/ID link (drops tracking like ?si=). Non-YouTube text is kept.
+export function cleanLink(raw) {
+  const s = String(raw || '').trim()
+  const id = youtubeId(s)
+  return id ? `https://youtu.be/${id}` : s
+}
+
 // The gate code: response key + cue digit + private letter. Case-insensitive.
 // Returns null for anything invalid (nothing gets logged).
 export function parseCode(code, config) {
@@ -171,7 +179,7 @@ export function parseClipLines(text) {
       bad.push(line)
       continue
     }
-    const url = parts[urlIdx]
+    const url = cleanLink(parts[urlIdx])
     const before = parts.slice(0, urlIdx)
     const after = parts.slice(urlIdx + 1)
     const emojiIdx = before.findIndex((p) => !/[\p{L}\p{N}]/u.test(p))
