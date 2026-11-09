@@ -31,6 +31,8 @@ export function newClip(overrides = {}) {
     end: '',
     words: '',
     questions: '',
+    check: null, // last clip-checker result: { status, at }
+    adStats: { plays: 0, ads: 0 }, // real plays, and how many seemed to start with an ad
     ...overrides
   }
 }
@@ -189,4 +191,30 @@ export function parseClipLines(text) {
     clips.push(newClip({ emoji, title, url, start, end }))
   }
   return { clips, bad }
+}
+
+// ---- Clip checker + ad tally (labels only; the timing lives in youtube.js) ----
+export const CHECK_LABELS = {
+  ok: { text: 'Works — no ad this time', tone: 'good' },
+  ad: { text: 'Ad played first', tone: 'warn' },
+  embed: { text: 'Embedding off — can’t play here', tone: 'bad' },
+  removed: { text: 'Removed or private', tone: 'bad' },
+  invalid: { text: 'Not a valid video link', tone: 'bad' },
+  blocked: { text: 'YouTube blocked on this network', tone: 'bad' },
+  stalled: { text: 'Didn’t load (slow or filtered network)', tone: 'bad' },
+  error: { text: 'YouTube error', tone: 'bad' },
+  nolink: { text: 'No YouTube link', tone: 'muted' }
+}
+
+export function recordPlay(clip, adLikely) {
+  const a = clip.adStats || { plays: 0, ads: 0 }
+  return { ...clip, adStats: { plays: a.plays + 1, ads: a.ads + (adLikely ? 1 : 0) } }
+}
+
+// "Ad on 2 of 6 plays" from real sessions, or '' before any plays.
+export function adTally(clip) {
+  const a = clip.adStats
+  if (!a || !a.plays) return ''
+  if (!a.ads) return `No ads in ${a.plays} ${a.plays === 1 ? 'play' : 'plays'}`
+  return `Ad on ${a.ads} of ${a.plays} ${a.plays === 1 ? 'play' : 'plays'}`
 }

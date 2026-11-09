@@ -1,7 +1,7 @@
 <script>
   import { onMount } from 'svelte'
   import * as store from './lib/db.js'
-  import { defaultConfig, cleanStudentCode, normalizeConfig } from './lib/config.js'
+  import { defaultConfig, cleanStudentCode, normalizeConfig, recordPlay } from './lib/config.js'
   import { requestEvent, vocabEvent, uttEvent, computeStats } from './lib/stats.js'
   import Menu from './components/Menu.svelte'
   import Gate from './components/Gate.svelte'
@@ -105,6 +105,15 @@
     screen = 'gate'
   }
 
+  // Keep a running count of real plays that started with an ad.
+  function onClipStarted({ adLikely }) {
+    const next = $state.snapshot(config)
+    const i = next.clips.findIndex((c) => c.id === clip.id)
+    if (i === -1) return
+    next.clips[i] = recordPlay(next.clips[i], adLikely)
+    saveConfig(next)
+  }
+
   function onClipEnded() {
     plays += 1
     const t = config.talk
@@ -183,7 +192,7 @@
     {:else if screen === 'gate'}
       <Gate {config} {clip} message={gateMsg} detail={gateDetail} {studentView} {again} {onCode} onBack={() => (screen = 'menu')} />
     {:else if screen === 'player'}
-      <Player {config} {clip} {studentView} onEnd={onClipEnded} onError={onClipFailed} onBack={() => (screen = 'menu')} />
+      <Player {config} {clip} {studentView} onEnd={onClipEnded} onError={onClipFailed} onStarted={onClipStarted} onBack={() => (screen = 'menu')} />
     {:else if screen === 'talk'}
       <Talk {config} {clip} {studentView} events={session.events} {onVocab} {onUtt} {onAgain} onNew={() => (screen = 'menu')} />
     {:else if screen === 'setup'}

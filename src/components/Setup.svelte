@@ -1,8 +1,10 @@
 <script>
-  import { newClip, normalizeConfig, parseWords, youtubeId, clipWindow, parseClipLines, cleanLink } from '../lib/config.js'
+  import { tick } from 'svelte'
+  import { newClip, normalizeConfig, parseWords, youtubeId, clipWindow, parseClipLines, cleanLink, CHECK_LABELS, adTally } from '../lib/config.js'
   import * as store from '../lib/db.js'
   import { toCSV, localDate } from '../lib/stats.js'
   import Player from './Player.svelte'
+  import { checkClip } from '../lib/youtube.js'
 
   let { config, students, onChange, onAddStudent, onRemoveStudent, onImported } = $props()
 
@@ -121,6 +123,55 @@
     setClip(i, 'thumb', canvas.toDataURL('image/jpeg', 0.8))
   }
 
+  // ---- Clip checker: plays each clip briefly, muted, in a small preview ----
+  let checking = $state(null) // { n, total, title } while running
+  let checkHost = $state()
+  let checkSummary = $state('')
+
+  function setCheck(id, status) {
+    edit((c) => {
+      const clip = c.clips.find((x) => x.id === id)
+      if (clip) clip.check = { status, at: new Date().toISOString() }
+    })
+  }
+
+  async function runChecks(clips) {
+    if (checking) return
+    checkSummary = ''
+    const counts = {}
+    for (let n = 0; n < clips.length; n++) {
+      const clip = clips[n]
+      checking = { n: n + 1, total: clips.length, title: clip.title }
+      const videoId = youtubeId(clip.url)
+      if (!videoId) continue // nothing to check (no link yet)
+      let status = 'error'
+      {
+        await tick()
+        const el = document.createElement('div')
+        checkHost.replaceChildren(el)
+        status = (await checkClip(el, { videoId, start: clipWindow(clip, config.clipSeconds).start })).status
+        if (status === 'blocked') {
+          setCheck(clip.id, status)
+          counts.blocked = clips.length - n
+          break // no point trying the rest
+        }
+      }
+      setCheck(clip.id, status)
+      counts[status] = (counts[status] || 0) + 1
+    }
+    checking = null
+    checkSummary = [
+      counts.ok && `${counts.ok} worked with no ad`,
+      counts.ad && `${counts.ad} played an ad first`,
+      counts.embed && `${counts.embed} can’t play here (embedding off)`,
+      (counts.removed || counts.invalid || counts.error || counts.stalled) &&
+        `${(counts.removed || 0) + (counts.invalid || 0) + (counts.error || 0) + (counts.stalled || 0)} didn’t load`,
+      counts.blocked && 'YouTube is blocked on this network'
+    ].filter(Boolean).join(' · ')
+  }
+
+  const fmtDay = (iso) => new Date(iso).toLocaleDateString([], { month: 'short', day: 'numeric' })
+
   function testClip(clip) {
     testResult = ''
     testing = clip
@@ -133,8 +184,9 @@
     {config}
     clip={testing}
     test
+    onStarted={({ adLikely }) => setCheck(testing.id, adLikely ? 'ad' : 'ok')}
     onEnd={() => {
-      testResult = `“${testing.title}” played to ${fmt(clipWindow(testing, config.clipSeconds).end)}. If an ad showed first, drop this clip.`
+      testResult = `“${testing.title}” played to ${fmt(clipWindow(testing, config.clipSeconds).end)}. `
       testing = null
     }}
     onError={(reason) => {
@@ -224,6 +276,18 @@
 
   <section>
     <h2>Clips</h2>
+    <div class="checker">
+      <div class="row">
+        <button class="btn primary" onclick={() => runChecks($state.snapshot(config.clips).filter((c) => youtubeId(c.url)))} disabled={!!checking || !config.clips.length}>Check all clips</button>
+        {#if checking}<span role="status">Checking {checking.n} of {checking.total}: {checking.title}…</span>
+        {:else if checkSummary}<span class="msg" role="status">{checkSummary}</span>{/if}
+      </div>
+      <p class="muted">
+        Plays the start of each clip, muted, to see whether it loads and whether an ad comes first.
+        Ads change from view to view, so one check is a guide. The ad count under each clip comes from real sessions and gets more useful over time.
+      </p>
+      <div class="preview" class:on={!!checking} bind:this={checkHost} aria-hidden="true"></div>
+    </div>
     {#if testResult}<p class="msg" role="status">{testResult}</p>{/if}
     {#each config.clips as clip, i (clip.id)}
       {@const vid = youtubeId(clip.url)}
@@ -242,6 +306,16 @@
           <button class="btn" onclick={() => testClip(clip)}>Test clip</button>
         </div>
         {#if clip.url && !vid}<p class="warn">That doesn’t look like a YouTube link.</p>{/if}
+        {#if clip.check || adTally(clip)}
+          {@const lab = clip.check && CHECK_LABELS[clip.check.status]}
+          <p class="status">
+            {#if lab}<span class="badge {lab.tone}">{lab.text}</span> <span class="muted">checked {fmtDay(clip.check.at)}</span>{/if}
+            {#if adTally(clip)}<span class="tally">{adTally(clip)}</span>{/if}
+            <button class="btn small" onclick={() => runChecks([$state.snapshot(clip)])} disabled={!!checking}>Check again</button>
+          </p>
+        {:else if vid}
+          <p class="status"><button class="btn small" onclick={() => runChecks([$state.snapshot(clip)])} disabled={!!checking}>Check</button></p>
+        {/if}
         <div class="row">
           <label class="check"><input type="checkbox" checked={clip.ytThumb} disabled={!vid} onchange={(e) => setClip(i, 'ytThumb', e.currentTarget.checked)} /> Use YouTube thumbnail</label>
           <label>Upload picture <input type="file" accept="image/*" onchange={(e) => uploadThumb(i, e)} /></label>
@@ -308,6 +382,17 @@
   td, th { padding: 4px 8px; text-align: left; }
   .warn { color: var(--warn); font-size: 0.9rem; margin-left: 6px; }
   .msg { font-weight: 700; }
+  .checker { margin-bottom: 8px; }
+  .preview { width: 0; height: 0; overflow: hidden; }
+  .preview.on { width: 240px; height: 135px; border-radius: 8px; background: #000; }
+  .preview :global(iframe) { width: 100%; height: 100%; border: 0; pointer-events: none; }
+  .status { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin: 4px 0; }
+  .badge { font-weight: 700; padding: 2px 10px; border-radius: 999px; }
+  .badge.good { background: var(--good-soft); color: var(--good); }
+  .badge.warn { background: var(--warn-soft); color: var(--warn); }
+  .badge.bad { background: var(--bad-soft); color: var(--bad); }
+  .badge.muted { color: var(--muted); }
+  .tally { font-weight: 700; }
   .thumb { height: 48px; border-radius: 6px; }
   .check input { width: 22px; height: 22px; }
   label.btn:focus-within { outline: 6px solid var(--ring); box-shadow: 0 0 0 9px var(--ring-edge); }

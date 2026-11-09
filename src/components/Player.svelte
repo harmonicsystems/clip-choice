@@ -4,7 +4,7 @@
   import { playClip } from '../lib/youtube.js'
 
   // test: Setup's "Test clip" — plays once, logs nothing, reports back.
-  let { config, clip, studentView = false, test = false, onEnd, onError, onBack } = $props()
+  let { config, clip, studentView = false, test = false, onEnd, onError, onBack, onStarted } = $props()
 
   // svelte-ignore state_referenced_locally — read once; the screen remounts per clip
   const win = clipWindow(clip, config.clipSeconds)
@@ -17,6 +17,7 @@
   let handle = null
   let timer = null
   let finished = false
+  let reported = false
 
   const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`
 
@@ -34,9 +35,13 @@
         videoId,
         start: win.start,
         end: win.end,
-        onPlaying: () => {
+        onPlaying: (info) => {
           loading = false
           waiting = false
+          if (info && info.waitedMs != null && !reported) {
+            reported = true
+            onStarted?.(info)
+          }
         },
         onWaiting: () => (waiting = true),
         onEnd: () => done(onEnd),

@@ -99,3 +99,18 @@ describe('cleanLink', () => {
     expect(clips[0]).toMatchObject({ title: 'Elastigirl', url: 'https://youtu.be/5kw9A39j57c' })
   })
 })
+
+import { recordPlay, adTally } from '../src/lib/config.js'
+describe('ad tally', () => {
+  it('counts plays and ads', () => {
+    let c = { adStats: { plays: 0, ads: 0 } }
+    expect(adTally(c)).toBe('')
+    c = recordPlay(c, false)
+    expect(adTally(c)).toBe('No ads in 1 play')
+    c = recordPlay(recordPlay(c, true), false)
+    expect(adTally(c)).toBe('Ad on 1 of 3 plays')
+  })
+  it('works on old clips without stats', () => {
+    expect(recordPlay({}, true).adStats).toEqual({ plays: 1, ads: 1 })
+  })
+})

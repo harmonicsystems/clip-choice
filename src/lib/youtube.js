@@ -53,6 +53,8 @@ export async function playClip(el, { videoId, start, end, onEnd, onError, onPlay
   let player = null
   let startTimer = null
   let waitTimer = null
+  let readyAt = 0
+  let started = false
 
   const finish = (fn) => {
     if (done) return
@@ -103,6 +105,7 @@ export async function playClip(el, { videoId, start, end, onEnd, onError, onPlay
     events: {
       onReady: (e) => {
         clearTimeout(startTimer)
+        readyAt = Date.now()
         const iframe = e.target.getIframe?.()
         if (iframe) iframe.tabIndex = -1 // keyboard focus stays on the page
         e.target.playVideo()
@@ -111,7 +114,9 @@ export async function playClip(el, { videoId, start, end, onEnd, onError, onPlay
       onStateChange: (e) => {
         if (e.data === YT.PlayerState.PLAYING) {
           clearTimeout(waitTimer)
-          onPlaying?.()
+          const waitedMs = Date.now() - readyAt
+          onPlaying?.({ waitedMs, adLikely: !started && waitedMs > AD_DELAY_MS })
+          started = true
         }
         if (e.data === YT.PlayerState.ENDED) finish(onEnd)
       },
@@ -138,6 +143,65 @@ export async function playClip(el, { videoId, start, end, onEnd, onError, onPlay
       }
     }
   }
+}
+
+// YouTube doesn't tell embeds when an ad is playing. What it does do is hold
+// the real video back: with no ad, PLAYING arrives about a second after the
+// player is ready; with a pre-roll it can't arrive until the ad ends. So a
+// start slower than this is counted as "ad likely".
+export const AD_DELAY_MS = 5000
+
+// Quick muted check of one clip, for Setup's clip checker. Resolves to
+// { status } — ok | ad | embed | removed | invalid | error | blocked | stalled —
+// and stops as soon as it knows (≤ ~5s after the player is ready).
+export function checkClip(el, { videoId, start = 0 }) {
+  return new Promise((resolve) => {
+    let player = null
+    let readyTimer = null
+    let adTimer = null
+    let settled = false
+    const settle = (status) => {
+      if (settled) return
+      settled = true
+      clearTimeout(readyTimer)
+      clearTimeout(adTimer)
+      try {
+        player?.destroy()
+      } catch {
+        /* gone */
+      }
+      resolve({ status })
+    }
+    loadYouTubeAPI().then(
+      (YT) => {
+        readyTimer = setTimeout(() => settle('stalled'), 20000)
+        player = new YT.Player(el, {
+          host: 'https://www.youtube-nocookie.com',
+          videoId,
+          width: '100%',
+          height: '100%',
+          playerVars: {
+            start: Math.floor(start), autoplay: 1, mute: 1, controls: 0, disablekb: 1, rel: 0,
+            playsinline: 1, iv_load_policy: 3, fs: 0, origin: location.origin, widget_referrer: location.href
+          },
+          events: {
+            onReady: (e) => {
+              clearTimeout(readyTimer)
+              e.target.mute()
+              e.target.playVideo()
+              adTimer = setTimeout(() => settle('ad'), AD_DELAY_MS)
+            },
+            onStateChange: (e) => {
+              if (e.data === YT.PlayerState.PLAYING) settle('ok')
+            },
+            onError: (e) =>
+              settle({ 2: 'invalid', 100: 'removed', 101: 'embed', 150: 'embed' }[e.data] || 'error')
+          }
+        })
+      },
+      () => settle('blocked')
+    )
+  })
 }
 
 export function youtubeThumb(videoId) {

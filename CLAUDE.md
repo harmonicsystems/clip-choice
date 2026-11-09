@@ -20,7 +20,10 @@ SOAP (soap.harmonic-systems.org) and Transcribe; same conventions.
 - `src/lib/db.js` — Dexie: `configs` (&student), `sessions` (&id; open = `ended:null`),
   `history` (&sessionId). Every event is appended immediately. Export/import JSON.
   `prefs` = localStorage, UI conveniences only.
-- `src/lib/youtube.js` — API loader with timeout + playClip (calls onEnd/onError exactly once).
+- `src/lib/youtube.js` — API loader with timeout + playClip (calls onEnd/onError exactly once;
+  onPlaying reports waitedMs/adLikely) + checkClip (Setup's muted clip checker). Ads are inferred:
+  YouTube gives embeds no ad event, so PLAYING arriving > AD_DELAY_MS after ready = "ad likely".
+  Each real play updates `clip.adStats {plays, ads}`; checker results live in `clip.check`.
 - `src/lib/gridnav.js` — arrow movement by tile position (any column count).
 - Components: App (state + loop), Menu, Gate, Player (also Setup's Test clip), Talk, Setup, Data.
 
