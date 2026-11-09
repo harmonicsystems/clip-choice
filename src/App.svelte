@@ -18,6 +18,7 @@
   let clip = $state(null)
   let again = $state(false)
   let gateMsg = $state('')
+  let gateDetail = $state('') // why a clip failed, shown to the clinician only
   let plays = 0 // clips played this visit, for the "alternate" talk setting
   let menuIndex = $state(0)
   let studentView = $state(store.prefs.get('studentView', false))
@@ -80,6 +81,7 @@
     menuIndex = i ?? menuIndex
     again = false
     gateMsg = ''
+    gateDetail = ''
     screen = 'gate'
   }
 
@@ -94,11 +96,12 @@
     return parsed.resp.unlock ? '' : 'Logged. Try again.'
   }
 
-  async function onClipFailed() {
+  async function onClipFailed(reason = '') {
     // The request still happened; record that the clip did not play.
     const i = session.events.length - 1
     if (session.events[i]?.type === 'request') session = await store.patchEvent(session.id, i, { played: false })
     gateMsg = "This clip won't load."
+    gateDetail = reason
     screen = 'gate'
   }
 
@@ -178,7 +181,7 @@
     {#if screen === 'menu'}
       <Menu clips={config.clips} start={menuIndex} onChoose={choose} />
     {:else if screen === 'gate'}
-      <Gate {config} {clip} message={gateMsg} {studentView} {again} {onCode} onBack={() => (screen = 'menu')} />
+      <Gate {config} {clip} message={gateMsg} detail={gateDetail} {studentView} {again} {onCode} onBack={() => (screen = 'menu')} />
     {:else if screen === 'player'}
       <Player {config} {clip} {studentView} onEnd={onClipEnded} onError={onClipFailed} onBack={() => (screen = 'menu')} />
     {:else if screen === 'talk'}

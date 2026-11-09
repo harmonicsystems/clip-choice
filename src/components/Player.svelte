@@ -35,7 +35,7 @@
         end: win.end,
         onPlaying: () => (loading = false),
         onEnd: () => done(onEnd),
-        onError: () => done(onError)
+        onError: (reason) => done(() => onError?.(reason))
       }).then((h) => {
         handle = h
         if (finished) h.destroy()

@@ -33,7 +33,20 @@ export function loadYouTubeAPI(timeoutMs = 8000) {
 // Creates a player that plays [start, end) once and calls onEnd exactly once,
 // either on ENDED or when currentTime reaches end (YouTube's own `end` can
 // leave the player paused on the last frame with suggestions showing).
-// onError is called if the video won't play. Returns { destroy }.
+// onError(reason) is called if the video won't play; reason is a short,
+// clinician-facing explanation (see REASONS). Returns { destroy }.
+export const REASONS = {
+  blocked: 'YouTube didn’t load. This network or device may block YouTube — try the same clip on another network.',
+  2: 'The link isn’t a valid YouTube video. Check the link in Setup.',
+  5: 'The browser couldn’t play this video. Try another clip, or update Chrome.',
+  100: 'This video was removed or made private. Pick a different upload.',
+  101: 'The owner doesn’t allow this video to play inside other sites. Pick a different upload of the clip.',
+  150: 'The owner doesn’t allow this video to play inside other sites. Pick a different upload of the clip.',
+  153: 'YouTube rejected the player setup (error 153). This needs a fix in the app.',
+  stalled: 'The video loaded but never started. Chrome may be blocking autoplay, or the network is too slow.'
+}
+const reasonFor = (code) => REASONS[code] || `YouTube error ${code}.`
+
 export async function playClip(el, { videoId, start, end, onEnd, onError, onPlaying }) {
   let done = false
   let poll = null
@@ -57,13 +70,13 @@ export async function playClip(el, { videoId, start, end, onEnd, onError, onPlay
   try {
     YT = await loadYouTubeAPI()
   } catch {
-    finish(onError)
+    finish(() => onError?.(REASONS.blocked))
     return { destroy: () => finish() }
   }
   if (done) return { destroy: () => {} }
 
   // If playback never starts (blocked video, network), fail cleanly.
-  startTimer = setTimeout(() => finish(onError), 15000)
+  startTimer = setTimeout(() => finish(() => onError?.(REASONS.stalled)), 15000)
 
   player = new YT.Player(el, {
     host: 'https://www.youtube-nocookie.com',
@@ -80,7 +93,9 @@ export async function playClip(el, { videoId, start, end, onEnd, onError, onPlay
       playsinline: 1,
       iv_load_policy: 3,
       fs: 0,
-      modestbranding: 1
+      modestbranding: 1,
+      origin: location.origin,
+      widget_referrer: location.href
     },
     events: {
       onReady: (e) => {
@@ -95,7 +110,7 @@ export async function playClip(el, { videoId, start, end, onEnd, onError, onPlay
         }
         if (e.data === YT.PlayerState.ENDED) finish(onEnd)
       },
-      onError: () => finish(onError)
+      onError: (e) => finish(() => onError?.(reasonFor(e.data)))
     }
   })
 

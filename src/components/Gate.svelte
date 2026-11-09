@@ -1,8 +1,8 @@
 <script>
   import { parseCode, youtubeId } from '../lib/config.js'
-  import { loadYouTubeAPI } from '../lib/youtube.js'
+  import { loadYouTubeAPI, REASONS } from '../lib/youtube.js'
 
-  let { config, clip, message = '', studentView, again, onCode, onBack } = $props()
+  let { config, clip, message = '', detail = '', studentView, again, onCode, onBack } = $props()
 
   // Keys are read at the document level instead of a text field, so focus can
   // never get lost and nothing is typed anywhere else by accident.
@@ -11,6 +11,11 @@
   let note = $state('')
   let busy = false
   let apiProblem = $state(false)
+
+  // Why the clip failed, for the clinician only.
+  const why = $derived(
+    studentView ? '' : detail && note === message ? detail : apiProblem && !note ? REASONS.blocked : ''
+  )
 
   $effect(() => {
     note = message
@@ -74,6 +79,7 @@
 
   {#if note}<p class="note" role="status">{note}</p>{/if}
   {#if apiProblem && !note}<p class="note" role="status">This clip won't load.</p>{/if}
+  {#if why}<p class="detail">{why}</p>{/if}
 
   {#if !studentView}
     <p class="help muted">
@@ -113,6 +119,7 @@
   .dot { width: 22px; height: 22px; border-radius: 50%; border: 3px solid var(--muted); }
   .dot.on { background: var(--ink); border-color: var(--ink); }
   .note { font-size: 1.4rem; font-weight: 700; margin: 18px 0 0; }
+  .detail { max-width: 640px; margin: 8px 0 0; padding: 8px 14px; border-radius: 10px; background: var(--warn-soft); color: var(--ink); }
   .help { margin: 24px 0 4px; }
   .keys { display: flex; flex-wrap: wrap; gap: 6px 14px; justify-content: center; max-width: 900px; font-size: 0.9rem; margin: 0; }
   .mini {

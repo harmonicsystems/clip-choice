@@ -137,8 +137,8 @@
       testResult = `“${testing.title}” played to ${fmt(clipWindow(testing, config.clipSeconds).end)}. If an ad showed first, drop this clip.`
       testing = null
     }}
-    onError={() => {
-      testResult = `“${testing.title}” won’t load here (blocked, removed, or not embeddable).`
+    onError={(reason) => {
+      testResult = `“${testing.title}” won’t load. ${reason}`
       testing = null
     }}
     onBack={() => {
