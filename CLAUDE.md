@@ -13,7 +13,7 @@ SOAP (soap.harmonic-systems.org) and Transcribe; same conventions.
 - Bundle ≤ 120 KB gzipped JS (scripts/check-bundle-size.mjs gates the build).
 
 ## Files
-- `src/lib/config.js` — defaults, normalizeConfig, parseCode (gate codes), parseWords, parseTime,
+- `src/lib/config.js` — defaults, normalizeConfig, parseCode (gate codes), parseWords, parseTime, parseClipLines (bulk add),
   clipWindow, youtubeId.
 - `src/lib/stats.js` — event builders (flags copied at log time; the private letter is never
   stored), computeStats, **noteText (all note wording lives here)**, toCSV, historyRow.

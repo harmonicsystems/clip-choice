@@ -84,6 +84,14 @@
       ·
       {#each config.cues as c, i (i)}<span><b>{i}</b> {c}</span>{/each}
     </p>
+  {:else if config.studentKey}
+    <!-- Clinician's reminder in student view: small, quiet, and without the private letter. -->
+    <p class="mini" aria-hidden="true">
+      {#each config.responses as r (r.key)}<span><b>{r.key}</b> {r.label}</span>{/each}
+      <span class="sep">+</span>
+      {#each config.cues as c, i (i)}<span><b>{i}</b> {c}</span>{/each}
+      <span class="sep">+ your letter</span>
+    </p>
   {/if}
 </section>
 
@@ -107,6 +115,22 @@
   .note { font-size: 1.4rem; font-weight: 700; margin: 18px 0 0; }
   .help { margin: 24px 0 4px; }
   .keys { display: flex; flex-wrap: wrap; gap: 6px 14px; justify-content: center; max-width: 900px; font-size: 0.9rem; margin: 0; }
+  .mini {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 8px;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 2px 12px;
+    margin: 0;
+    padding: 0 16px;
+    font-size: 0.78rem;
+    color: var(--muted);
+  }
+  .mini b { color: var(--ink); }
+  .mini .sep { opacity: 0.8; }
   @media (prefers-reduced-motion: reduce) {
     .code.shake { border-color: var(--bad); background: var(--bad-soft); }
   }

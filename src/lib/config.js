@@ -44,6 +44,7 @@ export function defaultConfig(student = 'ST01') {
     mluGoal: 3,
     altScoring: false, // when true, Y/P/X and digits only count with Alt held
     talk: 'every', // 'every' | 'alternate' | 'off' — when the word-card screen follows a clip
+    studentKey: true, // small code reference on the gate in student view (never shows the private letter)
     cues: [...DEFAULT_CUES],
     responses: DEFAULT_RESPONSES.map((r) => ({ ...r })),
     clips: [
@@ -84,6 +85,7 @@ export function normalizeConfig(raw) {
   c.secret = (String(c.secret || 'K').toUpperCase().match(/[A-Z]/) || ['K'])[0]
   c.altScoring = !!c.altScoring
   c.talk = ['every', 'alternate', 'off'].includes(c.talk) ? c.talk : 'every'
+  c.studentKey = c.studentKey !== false
   c.cues = Array.isArray(c.cues) && c.cues.length === 5 ? c.cues.map(String) : [...DEFAULT_CUES]
   c.responses = (Array.isArray(c.responses) ? c.responses : base.responses)
     .map((r) => ({
@@ -153,4 +155,30 @@ export function parseCode(code, config) {
   if (!/^[0-4]$/.test(s[1])) return null
   if (s[2] !== config.secret) return null
   return { resp, cue: Number(s[1]) }
+}
+
+// Bulk add: one clip per line, "emoji | Title | link | start | end".
+// Only the link is required; pieces are matched by what they look like.
+export function parseClipLines(text) {
+  const clips = []
+  const bad = []
+  for (const raw of String(text || '').split('\n')) {
+    const line = raw.trim()
+    if (!line) continue
+    const parts = line.split('|').map((s) => s.trim()).filter(Boolean)
+    const urlIdx = parts.findIndex((p) => youtubeId(p) && /youtu|^[\w-]{11}$/.test(p))
+    if (urlIdx === -1) {
+      bad.push(line)
+      continue
+    }
+    const url = parts[urlIdx]
+    const before = parts.slice(0, urlIdx)
+    const after = parts.slice(urlIdx + 1)
+    const emojiIdx = before.findIndex((p) => !/[\p{L}\p{N}]/u.test(p))
+    const emoji = emojiIdx === -1 ? '🎬' : before[emojiIdx]
+    const title = before.filter((_, i) => i !== emojiIdx).join(' ') || 'New clip'
+    const [start = '', end = ''] = after.filter((p) => parseTime(p) != null)
+    clips.push(newClip({ emoji, title, url, start, end }))
+  }
+  return { clips, bad }
 }

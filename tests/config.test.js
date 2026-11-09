@@ -68,3 +68,21 @@ describe('parsers', () => {
     expect(c.responses.length).toBe(5)
   })
 })
+
+import { parseClipLines } from '../src/lib/config.js'
+describe('parseClipLines', () => {
+  it('reads emoji, title, link, start, end in any amount of detail', () => {
+    const { clips, bad } = parseClipLines(
+      '🦸 | Elastigirl | https://youtu.be/WXb8z4z2b1U | 0:10 | 0:40\n' +
+        'Jack Jack Attack | https://youtu.be/Ze6snJiWLRI\n' +
+        'https://youtu.be/sF-k3j_R31w\n' +
+        'no link here'
+    )
+    expect(clips.map((c) => [c.emoji, c.title, c.start, c.end])).toEqual([
+      ['🦸', 'Elastigirl', '0:10', '0:40'],
+      ['🎬', 'Jack Jack Attack', '', ''],
+      ['🎬', 'New clip', '', '']
+    ])
+    expect(bad).toEqual(['no link here'])
+  })
+})

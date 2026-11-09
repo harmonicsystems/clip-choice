@@ -1,5 +1,5 @@
 <script>
-  import { newClip, normalizeConfig, parseWords, youtubeId, clipWindow } from '../lib/config.js'
+  import { newClip, normalizeConfig, parseWords, youtubeId, clipWindow, parseClipLines } from '../lib/config.js'
   import * as store from '../lib/db.js'
   import { toCSV, localDate } from '../lib/stats.js'
   import Player from './Player.svelte'
@@ -13,6 +13,17 @@
   let fileMsg = $state('')
   let testing = $state(null) // { clip, result }
   let testResult = $state('')
+  let bulkText = $state('')
+  let bulkMsg = $state('')
+
+  function addBulk() {
+    const { clips, bad } = parseClipLines(bulkText)
+    if (clips.length) edit((c) => c.clips.push(...clips))
+    bulkMsg =
+      `Added ${clips.length} clip${clips.length === 1 ? '' : 's'} to ${config.student}.` +
+      (bad.length ? ` Skipped ${bad.length} line(s) without a YouTube link.` : '')
+    bulkText = bad.join('\n')
+  }
 
   // Every edit goes through here so App saves it (debounced).
   function edit(fn) {
@@ -170,6 +181,7 @@
           <option value="off">Off (back to menu)</option>
         </select>
       </label>
+      <label class="check"><input type="checkbox" checked={config.studentKey} onchange={(e) => setField('studentKey', e.currentTarget.checked)} /> Small code key on the gate in student view</label>
       <label class="check"><input type="checkbox" checked={config.altScoring} onchange={(e) => setField('altScoring', e.currentTarget.checked)} /> Scoring keys need Alt held (Alt+Y, Alt+3…)</label>
     </div>
     <p class="muted">Leave student view with Shift + {config.secret}. Type gate codes without Shift.</p>
@@ -247,6 +259,14 @@
       </article>
     {/each}
     <button class="btn primary" onclick={() => edit((c) => c.clips.push(newClip()))}>Add clip</button>
+
+    <h3>Add several clips</h3>
+    <p class="muted">One per line: <code>emoji | Title | YouTube link | start | end</code>. Only the link is required.</p>
+    <textarea bind:value={bulkText} rows="4" placeholder="🦸 | Elastigirl | https://youtu.be/… | 0:10 | 0:40"></textarea>
+    <div class="row">
+      <button class="btn" onclick={addBulk} disabled={!bulkText.trim()}>Add these clips</button>
+      {#if bulkMsg}<span class="msg" role="status">{bulkMsg}</span>{/if}
+    </div>
   </section>
 
   <section>
