@@ -12,6 +12,7 @@
   const videoId = youtubeId(clip.url)
   let host = $state()
   let loading = $state(!!videoId)
+  let waiting = $state(false) // ready but not playing yet: usually an ad
   let left = $state(Math.round(win.end - win.start))
   let handle = null
   let timer = null
@@ -33,7 +34,11 @@
         videoId,
         start: win.start,
         end: win.end,
-        onPlaying: () => (loading = false),
+        onPlaying: () => {
+          loading = false
+          waiting = false
+        },
+        onWaiting: () => (waiting = true),
         onEnd: () => done(onEnd),
         onError: (reason) => done(() => onError?.(reason))
       }).then((h) => {
@@ -57,6 +62,9 @@
     } else if (e.key === 'Escape') {
       e.preventDefault()
       done(onBack)
+    } else if (e.key === 'Enter') {
+      e.preventDefault()
+      handle?.play?.()
     }
   }
 
@@ -75,7 +83,7 @@
   {#if videoId}
     <div class="frame">
       <div bind:this={host}></div>
-      {#if loading}<p class="loading">Loading…</p>{/if}
+      {#if loading && !waiting}<p class="loading">Loading…</p>{/if}
     </div>
   {:else}
     <div class="stand-in">
@@ -86,6 +94,7 @@
   {/if}
   {#if !studentView}
     <p class="help muted">
+      {#if waiting}<b>Waiting for the video — probably an ad. Enter = try to start · </b>{/if}
       {test ? `Testing ${fmt(win.start)}–${fmt(win.end)} · ` : ''}Space = done · Esc = {test ? 'stop' : 'menu'}
     </p>
   {/if}

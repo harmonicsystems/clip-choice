@@ -43,21 +43,23 @@ export const REASONS = {
   101: 'The owner doesn’t allow this video to play inside other sites. Pick a different upload of the clip.',
   150: 'The owner doesn’t allow this video to play inside other sites. Pick a different upload of the clip.',
   153: 'YouTube rejected the player setup (error 153). This needs a fix in the app.',
-  stalled: 'The video loaded but never started. Chrome may be blocking autoplay, or the network is too slow.'
+  stalled: 'The YouTube player never finished loading. The network may be slow or filtered.'
 }
 const reasonFor = (code) => REASONS[code] || `YouTube error ${code}.`
 
-export async function playClip(el, { videoId, start, end, onEnd, onError, onPlaying }) {
+export async function playClip(el, { videoId, start, end, onEnd, onError, onPlaying, onWaiting }) {
   let done = false
   let poll = null
   let player = null
   let startTimer = null
+  let waitTimer = null
 
   const finish = (fn) => {
     if (done) return
     done = true
     clearInterval(poll)
     clearTimeout(startTimer)
+    clearTimeout(waitTimer)
     try {
       player?.destroy()
     } catch {
@@ -71,13 +73,14 @@ export async function playClip(el, { videoId, start, end, onEnd, onError, onPlay
     YT = await loadYouTubeAPI()
   } catch {
     finish(() => onError?.(REASONS.blocked))
-    return { destroy: () => finish() }
+    return { destroy: () => finish(), play: () => {} }
   }
-  if (done) return { destroy: () => {} }
+  if (done) return { destroy: () => {}, play: () => {} }
 
-  // If playback never starts (blocked video, network), fail cleanly.
-  startTimer = setTimeout(() => finish(() => onError?.(REASONS.stalled)), 15000)
-
+  // Only a player that never gets ready counts as a failure. Once ready,
+  // pre-roll ads can hold the real video back for 30s or more, so a slow
+  // start is reported with onWaiting (clinician hint), not as an error.
+  startTimer = setTimeout(() => finish(() => onError?.(REASONS.stalled)), 20000)
   player = new YT.Player(el, {
     host: 'https://www.youtube-nocookie.com',
     videoId,
@@ -99,13 +102,15 @@ export async function playClip(el, { videoId, start, end, onEnd, onError, onPlay
     },
     events: {
       onReady: (e) => {
+        clearTimeout(startTimer)
         const iframe = e.target.getIframe?.()
         if (iframe) iframe.tabIndex = -1 // keyboard focus stays on the page
         e.target.playVideo()
+        waitTimer = setTimeout(() => !done && onWaiting?.(), 6000)
       },
       onStateChange: (e) => {
         if (e.data === YT.PlayerState.PLAYING) {
-          clearTimeout(startTimer)
+          clearTimeout(waitTimer)
           onPlaying?.()
         }
         if (e.data === YT.PlayerState.ENDED) finish(onEnd)
@@ -122,7 +127,17 @@ export async function playClip(el, { videoId, start, end, onEnd, onError, onPlay
     }
   }, 250)
 
-  return { destroy: () => finish() }
+  return {
+    destroy: () => finish(),
+    // A key press is a user gesture, so this can start a video Chrome held back.
+    play: () => {
+      try {
+        player?.playVideo()
+      } catch {
+        /* not ready */
+      }
+    }
+  }
 }
 
 export function youtubeThumb(videoId) {
